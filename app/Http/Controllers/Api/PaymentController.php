@@ -136,7 +136,6 @@ class PaymentController extends Controller
         $reqSignature = $request->signature_key;
 
         // Validasi Signature (Cek Keaslian Data)
-        // Rumus: SHA512(order_id + status_code + gross_amount + ServerKey)
         $signature = hash('sha512', $orderId.$statusCode.$grossAmount.$serverKey);
 
         if ($signature !== $reqSignature) {
@@ -148,7 +147,10 @@ class PaymentController extends Controller
         $trx = Transaction::where('order_id', $orderId)->first();
 
         if (! $trx) {
-            return response()->json(['message' => 'Order not found'], 404);
+            // PENTING: Untuk test notification dari Dashboard Midtrans, order_id pasti tidak ada di DB.
+            // Kita return 200 OK agar Midtrans menganggap webhook sukses terkirim.
+            Log::warning("Webhook received for unknown Order ID: $orderId");
+            return response()->json(['message' => 'Order not found, but webhook received'], 200);
         }
 
         if ($transactionStatus == 'capture' || $transactionStatus == 'settlement') {
