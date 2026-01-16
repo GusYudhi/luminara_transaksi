@@ -1,83 +1,137 @@
-# 💳 Luminara Transaksi API
+# 💳 Luminara Transaksi - Payment Service
 
-**Luminara Transaksi** adalah layanan Backend API yang bertugas menangani gerbang pembayaran (Payment Gateway) untuk ekosistem **Luminara Photobooth**. Layanan ini menjembatani aplikasi kasir Desktop/Mobile (Flutter) dengan **Midtrans**.
+<div align="center">
+  <img src="public/favicon.ico" alt="Luminara Transaksi" width="100" height="100">
 
-## 🚀 Fitur Utama
+![Laravel](https://img.shields.io/badge/Laravel-FF2D20?style=for-the-badge&logo=laravel&logoColor=white)
+![PHP](https://img.shields.io/badge/PHP-777BB4?style=for-the-badge&logo=php&logoColor=white)
+![Midtrans](https://img.shields.io/badge/Midtrans-Payment-blue?style=for-the-badge&logo=credit-card&logoColor=white)
 
-- **Integrasi Midtrans Snap:** Membuat token pembayaran untuk QRIS, Virtual Account, dll.
-- **Audit Trail:** Menyimpan riwayat transaksi dan status pembayaran.
-- **Webhook Handler:** Menerima notifikasi realtime dari Midtrans.
-- **Manual Sync/Polling:** Endpoint khusus untuk memaksakan pengecekan status ke server Midtrans (solusi untuk Localhost tanpa Public IP).
+**Dedicated Payment Gateway Service for Luminara Photobooth**
 
-## 🛠️ Teknologi
+[Features](#-features) • [Installation](#-installation) • [API Reference](#-api-endpoints) • [Usage](#-usage)
 
-- **Framework:** Laravel 12 / PHP 8.2+
-- **Database:** MySQL / MariaDB (via DDEV atau Native)
-- **Payment Gateway:** Midtrans (Snap API)
-- **Environment:** DDEV (Docker) atau Native PHP Server
+</div>
 
-## ⚙️ Instalasi & Setup
+---
 
-### 1. Clone & Dependencies
+## 📖 About
+
+**Luminara Transaksi** is a robust backend microservice designed to handle payment processing for the **Luminara Photobooth Ecosystem**. It acts as a secure bridge between the local offline-first Flutter application and the **Midtrans Payment Gateway**.
+
+This service solves the challenge of processing online payments (QRIS, VA, E-Wallet) within a Local Area Network (LAN) environment by implementing smart polling and manual synchronization mechanisms.
+
+---
+
+## ✨ Features
+
+### 🔐 **Payment Processing**
+- **Midtrans Snap Integration:** Generates secure payment tokens for QRIS, Virtual Accounts, and E-Wallets.
+- **Smart Synchronization:** **Force Sync** endpoint allows the Flutter client to trigger status updates manually, bypassing the need for public webhooks in a localhost environment.
+- **Real-time Validation:** Validates transaction signatures to prevent fraud.
+
+### 🗄️ **Data Integrity**
+- **Audit Trail:** Logs every transaction attempt, Snap token, and payment method details.
+- **Status Tracking:** Tracks the lifecycle of a payment from `pending` -> `settlement` -> `capture` or `expire`.
+
+### ⚡ **Infrastructure**
+- **DDEV Ready:** Pre-configured Docker environment for consistent development.
+- **LAN Accessible:** Configured to serve requests across the local network (Bind `0.0.0.0`).
+
+---
+
+## 🛠️ Technical Stack
+
+- **Framework:** Laravel 12 (PHP 8.2+)
+- **Database:** MySQL / MariaDB (via DDEV or Native)
+- **Gateway:** Midtrans Snap API
+- **Containerization:** Docker (DDEV)
+
+---
+
+## 🚀 Installation & Setup
+
+### **1. Clone & Install**
 ```bash
 git clone https://github.com/Andndre/luminara_transaksi.git
 cd luminara_transaksi
 composer install
 ```
 
-### 2. Environment Setup
-Salin file konfigurasi dan atur kredensial Database serta Midtrans.
+### **2. Environment Configuration**
+Copy the example file and generate your application key:
 ```bash
 cp .env.example .env
 php artisan key:generate
 ```
 
-Isi `.env` dengan kredensial Midtrans Anda:
+Configure your database and Midtrans credentials in `.env`:
 ```env
-MIDTRANS_MERCHANT_ID=...
-MIDTRANS_CLIENT_KEY=...
-MIDTRANS_SERVER_KEY=...
+# Database (DDEV Default)
+DB_CONNECTION=mysql
+DB_HOST=127.0.0.1
+DB_PORT=3306
+
+# Midtrans Configuration
+MIDTRANS_MERCHANT_ID=your_merchant_id
+MIDTRANS_CLIENT_KEY=your_client_key
+MIDTRANS_SERVER_KEY=your_server_key
 MIDTRANS_IS_PRODUCTION=false
 ```
 
-### 3. Database Migration
+### **3. Database Migration**
 ```bash
 php artisan migrate
 ```
 
-## 🖥️ Cara Menjalankan (Local Network Access)
+---
 
-Agar Aplikasi Flutter di HP/Tablet bisa mengakses API ini melalui Wi-Fi lokal, server harus dijalankan dengan mengikat (bind) ke `0.0.0.0`.
+## 🖥️ Running the Server (LAN Access)
 
-### Opsi A: Menggunakan Native PHP (Disarankan untuk testing cepat)
-Pastikan MySQL service menyala (atau gunakan DB dari DDEV), lalu jalankan:
+To allow the Flutter app (running on mobile devices) to access this API, the server must be accessible via your local IP address.
+
+### **Option A: Native PHP Serve (Recommended for Testing)**
+Run the server binding to all interfaces:
 ```bash
 php artisan serve --host 0.0.0.0 --port 8000
 ```
-*Akses dari HP:* `http://192.168.x.x:8000/api/...`
+> **Access:** `http://192.168.x.x:8000`
 
-### Opsi B: Menggunakan DDEV
-Project ini sudah dikonfigurasi untuk mengekspos port 8000 dari dalam container ke host.
-
+### **Option B: Using DDEV**
+This project includes DDEV configuration to expose port 8000.
 ```bash
 ddev start
 ddev php artisan serve --host 0.0.0.0 --port 8000
 ```
-*Pastikan Firewall Linux (UFW) mengizinkan port 8000.*
+
+*Note: Ensure your Firewall (e.g., UFW on Linux) allows incoming traffic on port 8000.*
+
+---
 
 ## 🔌 API Endpoints
 
-| Method | Endpoint | Deskripsi |
+| Method | Endpoint | Description |
 | :--- | :--- | :--- |
-| `POST` | `/api/transaction` | Membuat transaksi baru. Body: `{ "amount": 50000, "order_id": "optional" }` |
-| `GET` | `/api/transaction/{orderId}` | Cek status transaksi di database lokal. |
-| `POST` | `/api/transaction/{orderId}/sync` | **Force Sync:** Memaksa server cek status ke Midtrans & update DB. |
-| `POST` | `/api/midtrans-callback` | Webhook URL untuk Midtrans Notification. |
+| `POST` | `/api/transaction` | Create a new transaction. <br> **Body:** `{ "amount": 50000, "order_id": "optional-uuid" }` |
+| `GET` | `/api/transaction/{orderId}` | Check local transaction status. <br> **Returns:** `status`, `payment_type` |
+| `POST` | `/api/transaction/{orderId}/sync` | **Force Sync:** Pull latest status from Midtrans Cloud & update DB. |
+| `POST` | `/api/midtrans-callback` | Webhook URL for Midtrans Notification (Public Server only). |
 
-## 📝 Catatan Penting
+---
 
-- **Local Development:** Karena Webhook Midtrans tidak bisa menembus localhost/LAN tanpa Public IP/Ngrok, aplikasi Flutter menggunakan metode **Polling + Force Sync**. Aplikasi akan memanggil endpoint `/sync` secara berkala untuk memastikan status pembayaran terupdate.
+## 🤝 Contributing
+
+We welcome contributions! Please follow standard Laravel coding standards.
+
+---
 
 ## 📄 License
 
-Project ini bersifat private/proprietary untuk Luminara Photobooth. Didasarkan pada [Laravel Framework](https://laravel.com) (MIT License).
+This project is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+
+---
+
+## 👥 Team
+
+- **Developer**: [Andndre](https://github.com/Andndre)
+- **Project**: Luminara Photobooth
