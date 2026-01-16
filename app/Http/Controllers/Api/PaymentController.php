@@ -23,10 +23,11 @@ class PaymentController extends Controller
     {
         $request->validate([
             'amount' => 'required|numeric|min:1000',
+            'order_id' => 'nullable|string',
         ]);
 
-        // Buat Order ID Unik
-        $orderId = 'POS-'.time().'-'.rand(100, 999);
+        // Gunakan Order ID dari Client jika ada, atau buat baru
+        $orderId = $request->order_id ?? 'POS-'.time().'-'.rand(100, 999);
 
         // Simpan dulu ke Database (Status: Pending)
         $trx = new Transaction();
@@ -55,14 +56,69 @@ class PaymentController extends Controller
             $trx->snap_token = $snapToken;
             $trx->save();
 
+            // Generate Redirect URL (untuk non-mobile/webview)
+            // Default Snap URL sandbox: https://app.sandbox.midtrans.com/snap/v2/vtweb/{token}
+            // Production: https://app.midtrans.com/snap/v2/vtweb/{token}
+            $baseSnapUrl = Config::$isProduction 
+                ? 'https://app.midtrans.com/snap/v2/vtweb/' 
+                : 'https://app.sandbox.midtrans.com/snap/v2/vtweb/';
+            
+            $redirectUrl = $baseSnapUrl . $snapToken;
+
             return response()->json([
                 'status' => 'success',
                 'snap_token' => $snapToken,
+                'redirect_url' => $redirectUrl,
                 'order_id' => $orderId
             ]);
 
         } catch (\Exception $e) {
             return response()->json(['status' => 'error', 'message' => $e->getMessage()], 500);
+        }
+    }
+
+    public function checkStatus($orderId)
+    {
+        $trx = Transaction::where('order_id', $orderId)->first();
+
+        if (!$trx) {
+            return response()->json(['status' => 'not_found'], 404);
+        }
+
+        return response()->json([
+            'status' => 'success',
+            'data' => [
+                'order_id' => $trx->order_id,
+                'status' => $trx->status, // pending, paid, failed
+                'payment_type' => $trx->payment_type,
+            ]
+        ]);
+    }
+
+    public function syncStatus($orderId)
+    {
+        $trx = Transaction::where('order_id', $orderId)->first();
+        if (!$trx) return response()->json(['message' => 'Not found'], 404);
+
+        try {
+            // Cek langsung ke Server Midtrans
+            $status = \Midtrans\Transaction::status($orderId);
+            
+            $transactionStatus = $status->transaction_status;
+            $paymentType = $status->payment_type;
+
+            if ($transactionStatus == 'capture' || $transactionStatus == 'settlement') {
+                $trx->status = 'paid';
+                $trx->payment_type = $paymentType;
+            } else if ($transactionStatus == 'cancel' || $transactionStatus == 'deny' || $transactionStatus == 'expire') {
+                $trx->status = 'failed';
+            }
+            
+            $trx->save();
+
+            return response()->json(['status' => 'success', 'data' => $trx]);
+        } catch (\Exception $e) {
+            return response()->json(['message' => $e->getMessage()], 500);
         }
     }
 
