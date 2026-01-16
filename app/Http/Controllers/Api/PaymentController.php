@@ -22,7 +22,7 @@ class PaymentController extends Controller
     public function createTransaction(Request $request)
     {
         $request->validate([
-            'name' => 'nullable|string',
+            'customer_name' => 'nullable|string',
             'amount' => 'required|numeric|min:1000',
             'order_id' => 'nullable|string',
         ]);
@@ -44,7 +44,7 @@ class PaymentController extends Controller
                 'gross_amount' => (int) $request->amount,
             ],
             'customer_details' => [
-                'first_name' => $request->name ?? "Guest",
+                'first_name' => $request->customer_name ?? "Guest",
                 'email' => "guest@pos-system.com",
             ]
         ];
