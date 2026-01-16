@@ -1,59 +1,83 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# 💳 Luminara Transaksi API
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+**Luminara Transaksi** adalah layanan Backend API yang bertugas menangani gerbang pembayaran (Payment Gateway) untuk ekosistem **Luminara Photobooth**. Layanan ini menjembatani aplikasi kasir Desktop/Mobile (Flutter) dengan **Midtrans**.
 
-## About Laravel
+## 🚀 Fitur Utama
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+- **Integrasi Midtrans Snap:** Membuat token pembayaran untuk QRIS, Virtual Account, dll.
+- **Audit Trail:** Menyimpan riwayat transaksi dan status pembayaran.
+- **Webhook Handler:** Menerima notifikasi realtime dari Midtrans.
+- **Manual Sync/Polling:** Endpoint khusus untuk memaksakan pengecekan status ke server Midtrans (solusi untuk Localhost tanpa Public IP).
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+## 🛠️ Teknologi
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+- **Framework:** Laravel 12 / PHP 8.2+
+- **Database:** MySQL / MariaDB (via DDEV atau Native)
+- **Payment Gateway:** Midtrans (Snap API)
+- **Environment:** DDEV (Docker) atau Native PHP Server
 
-## Learning Laravel
+## ⚙️ Instalasi & Setup
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework. You can also check out [Laravel Learn](https://laravel.com/learn), where you will be guided through building a modern Laravel application.
+### 1. Clone & Dependencies
+```bash
+git clone https://github.com/Andndre/luminara_transaksi.git
+cd luminara_transaksi
+composer install
+```
 
-If you don't feel like reading, [Laracasts](https://laracasts.com) can help. Laracasts contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
+### 2. Environment Setup
+Salin file konfigurasi dan atur kredensial Database serta Midtrans.
+```bash
+cp .env.example .env
+php artisan key:generate
+```
 
-## Laravel Sponsors
+Isi `.env` dengan kredensial Midtrans Anda:
+```env
+MIDTRANS_MERCHANT_ID=...
+MIDTRANS_CLIENT_KEY=...
+MIDTRANS_SERVER_KEY=...
+MIDTRANS_IS_PRODUCTION=false
+```
 
-We would like to extend our thanks to the following sponsors for funding Laravel development. If you are interested in becoming a sponsor, please visit the [Laravel Partners program](https://partners.laravel.com).
+### 3. Database Migration
+```bash
+php artisan migrate
+```
 
-### Premium Partners
+## 🖥️ Cara Menjalankan (Local Network Access)
 
-- **[Vehikl](https://vehikl.com)**
-- **[Tighten Co.](https://tighten.co)**
-- **[Kirschbaum Development Group](https://kirschbaumdevelopment.com)**
-- **[64 Robots](https://64robots.com)**
-- **[Curotec](https://www.curotec.com/services/technologies/laravel)**
-- **[DevSquad](https://devsquad.com/hire-laravel-developers)**
-- **[Redberry](https://redberry.international/laravel-development)**
-- **[Active Logic](https://activelogic.com)**
+Agar Aplikasi Flutter di HP/Tablet bisa mengakses API ini melalui Wi-Fi lokal, server harus dijalankan dengan mengikat (bind) ke `0.0.0.0`.
 
-## Contributing
+### Opsi A: Menggunakan Native PHP (Disarankan untuk testing cepat)
+Pastikan MySQL service menyala (atau gunakan DB dari DDEV), lalu jalankan:
+```bash
+php artisan serve --host 0.0.0.0 --port 8000
+```
+*Akses dari HP:* `http://192.168.x.x:8000/api/...`
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+### Opsi B: Menggunakan DDEV
+Project ini sudah dikonfigurasi untuk mengekspos port 8000 dari dalam container ke host.
 
-## Code of Conduct
+```bash
+ddev start
+ddev php artisan serve --host 0.0.0.0 --port 8000
+```
+*Pastikan Firewall Linux (UFW) mengizinkan port 8000.*
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## 🔌 API Endpoints
 
-## Security Vulnerabilities
+| Method | Endpoint | Deskripsi |
+| :--- | :--- | :--- |
+| `POST` | `/api/transaction` | Membuat transaksi baru. Body: `{ "amount": 50000, "order_id": "optional" }` |
+| `GET` | `/api/transaction/{orderId}` | Cek status transaksi di database lokal. |
+| `POST` | `/api/transaction/{orderId}/sync` | **Force Sync:** Memaksa server cek status ke Midtrans & update DB. |
+| `POST` | `/api/midtrans-callback` | Webhook URL untuk Midtrans Notification. |
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+## 📝 Catatan Penting
 
-## License
+- **Local Development:** Karena Webhook Midtrans tidak bisa menembus localhost/LAN tanpa Public IP/Ngrok, aplikasi Flutter menggunakan metode **Polling + Force Sync**. Aplikasi akan memanggil endpoint `/sync` secara berkala untuk memastikan status pembayaran terupdate.
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## 📄 License
+
+Project ini bersifat private/proprietary untuk Luminara Photobooth. Didasarkan pada [Laravel Framework](https://laravel.com) (MIT License).
